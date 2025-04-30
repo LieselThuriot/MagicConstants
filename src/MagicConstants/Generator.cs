@@ -1,6 +1,7 @@
 ﻿using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.Diagnostics;
 using NUglify;
+using System.Text;
 using FileOptions = (string? Class, bool RemoveRouteExtension, Microsoft.CodeAnalysis.AdditionalText File, string? CacheControl, bool? Minify);
 using GlobalOptions = (string Namespace, string Visibility, bool Routes, string? CacheControl, bool Minify, string? ProjectDirectory);
 
@@ -32,7 +33,7 @@ public class Generator : IIncrementalGenerator
 
                                          string? shouldMinifyString = GetAdditionalFileMetadata(pair.Right, pair.Left, "MagicMinify");
                                          bool? shouldMinify = shouldMinifyString == null ? null : bool.TryParse(shouldMinifyString, out bool minify) && minify;
-                                         
+
                                          return (Class: @class, RemoveRouteExtension: removeRouteExtension, File: pair.Left, CacheControl: cacheControl, Minify: shouldMinify);
                                      })
                                      .Where(static pair => pair.Class is not null);
@@ -58,6 +59,12 @@ public class Generator : IIncrementalGenerator
             else
             {
                 content = file.GetText()?.ToString() ?? "";
+
+                if (extension is ".html" or ".htm" or ".css" or ".js")
+                {
+                    content = content.Replace("{MAGIC_TIME}", DateTimeOffset.UtcNow.ToUnixTimeSeconds().ToString())
+                                     .Replace("{MAGIC_HASH}", GenerateUniqueIdentifier());
+                }
 
                 if ((pair.FileOptions.Minify.HasValue && pair.FileOptions.Minify.GetValueOrDefault()) || pair.GlobalOptions.Minify)
                 {
@@ -230,6 +237,22 @@ namespace {@namespace}
 }}");
         });
 
+    }
+
+    private static string GenerateUniqueIdentifier()
+    {
+        StringBuilder hash = new();
+        long seconds = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
+
+        const string chars = "if1k2dLJHswO3N45";
+
+        while (seconds > 0)
+        {
+            hash.Insert(0, chars[(int)(seconds % chars.Length)]);
+            seconds /= chars.Length;
+        }
+
+        return hash.ToString();
     }
 
     private static string GetFileTemplate(string content, string type, string @class, string @namespace, string visibility, string filename)
