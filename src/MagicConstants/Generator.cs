@@ -2,6 +2,7 @@
 using Microsoft.CodeAnalysis.Diagnostics;
 using NUglify;
 using System.Text;
+using System.Text.RegularExpressions;
 using FileOptions = (string? Class, bool RemoveRouteExtension, Microsoft.CodeAnalysis.AdditionalText File, string? CacheControl, bool? Minify);
 using GlobalOptions = (string Namespace, string Visibility, bool Routes, string? CacheControl, bool Minify, string? ProjectDirectory);
 
@@ -64,6 +65,9 @@ public class Generator : IIncrementalGenerator
                 {
                     content = content.Replace("{MAGIC_TIME}", DateTimeOffset.UtcNow.ToUnixTimeSeconds().ToString())
                                      .Replace("{MAGIC_HASH}", GenerateUniqueIdentifier());
+
+                    DirectoryInfo directory = new FileInfo(file.Path).Directory;
+                    content = InlineTemplates(content, directory);
                 }
 
                 if ((pair.FileOptions.Minify.HasValue && pair.FileOptions.Minify.GetValueOrDefault()) || pair.GlobalOptions.Minify)
@@ -237,6 +241,34 @@ namespace {@namespace}
 }}");
         });
 
+    }
+
+    private static string InlineTemplates(string content, DirectoryInfo directory)
+    {
+        if (string.IsNullOrEmpty(content))
+        {
+            return content;
+        }
+
+        return Regex.Replace(content, """{MAGIC_FILE\s+(?<file>.+?)\s*}""", x =>
+        {
+            string fileName = x.Groups["file"].Value;
+
+            FileInfo file = Path.IsPathRooted(fileName)
+                ? new(fileName)
+                : new(Path.Combine(directory.FullName, fileName));
+
+            if (!file.Exists)
+            {
+                return x.Value;
+            }
+
+#pragma warning disable RS1035 // Do not use APIs banned for analyzers
+            string fileContent = File.ReadAllText(file.FullName);
+#pragma warning restore RS1035 // Do not use APIs banned for analyzers
+
+            return InlineTemplates(fileContent, file.Directory);
+        });
     }
 
     private static string GenerateUniqueIdentifier()

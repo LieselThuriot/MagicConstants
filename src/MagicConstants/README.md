@@ -41,10 +41,16 @@ You can use the following syntax:
 ```html
 <a href="index.html?noCache={MAGIC_TIME}">
 <a href="index.html?noCache={MAGIC_HASH}">
+{MAGIC_FILE test.html}
 ```
 
-MAGIC_TIME will use the Unix Timestamp in seconds during build, while MAGIC_HASH will try and make a unique but consistent hash out of the timestamp, which will end up as:
+- MAGIC_TIME will use the Unix Timestamp in seconds during build, 
+- MAGIC_HASH will try and make a unique but consistent hash out of the timestamp.
+- MAGIC_FILE is a simplistic template inliner.
+
+This will end up as:
 ```html
 <a href="index.html?noCache=1746028631">
 <a href="index.html?noCache=LHf1JfsN">
+<div>This is the content of test.html</div>
 ```
